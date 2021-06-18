@@ -17,24 +17,59 @@ void clear_buffer(char* b)
         b[i] = '\0';
 }
 
-int auth(int sockets , char* uname, char* pass)
+int sendQuery(int sock)
+{
+    char command[BUFSIZ];
+    char buffers[BUFSIZ];
+    while(1)
+    {
+        fgets(command,sizeof(command),stdin);
+        //agar enter hilang
+        command[strcspn(command, "\n")] = 0;
+
+        send(sock,command,strlen(command),0);
+
+        clear_buffer(buffers);
+        read(sock,buffers,BUFSIZ);
+        if(strstr(buffers,"CREATE"))
+        {
+            printf("Create berhasil.\n");
+        }
+        else
+        {
+            printf("Create gagal.\n");
+        }
+        
+    }
+}
+
+int auth(int sockets , char* uname, char* pass, int isroot)
 {
     char buffers[BUFSIZ];
     clear_buffer(buffers);
     char senduser[BUFSIZ];
     sprintf(senduser,"%s:%s",uname,pass);
-    send(sockets,senduser,strlen(senduser),0);
+    if(isroot == 1)
+    {
+        send(sockets,"root",strlen("root"),0);
+    }
+    else
+    {
+        send(sockets,senduser,strlen(senduser),0);
+    }
 
     read(sockets,buffers,BUFSIZ);
     if(strcmp(buffers,"Berhasil")==0)
     {
         printf("Login berhasil!\n");
-        return 0;
+        return 1;
     }
-    return 1;
+    return 0;
 }
 
+
 int main(int argc, char* argv[]) {
+    int isroot;
     struct sockaddr_in address;
     int sock = 0, valread;
     struct sockaddr_in serv_addr;
@@ -61,6 +96,22 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
-    var = auth(sock,argv[2],argv[4]);
+
+    if (geteuid() != 0) {
+        isroot = 0;
+        var = auth(sock, argv[2], argv[4], isroot);
+    }
+    else {
+        isroot = 1;
+        var = auth(sock, argv[2], argv[4], isroot);
+    }
+
+    if (!var) {
+        printf("Login anda gagal\n");
+        exit(0);
+    }
+    
+    printf("Login berhasil\n");
+    sendQuery(sock);
     return 0;
 }
