@@ -10,6 +10,8 @@
 #include <limits.h>
 #define PORT 8080  
 
+int userAktif = 0;
+
 void clear_buffer(char* b) 
 {
     int i;
@@ -17,30 +19,77 @@ void clear_buffer(char* b)
         b[i] = '\0';
 }
 
-// void handleQuery(int socketfd) {
-//     char buffer[BUFSIZ];
-//     while (1)
-//     {
-//         clearBuffer(buffer);
-//         read(socketfd, buffer, BUFSIZ);
-//         printf("%s\n", buffer);
+void simpanUser(char username[],char password[])
+{
+    FILE *newuser;
+    newuser = fopen("rootcreate.txt","a+");
 
-//         int res = 0;
+    fprintf(newuser,"%s:%s\n",username,password);
+    fclose(newuser);
+}
 
-//         if (buffer[strlen(buffer)-1] == ';')
-//         {
-//             buffer[strlen(buffer)-1] = '\0';
+int cekcreate(char* query)
+{
+    char user_query[BUFSIZ];
+    strcpy(user_query,query);
+    char *commands;
+    commands = strtok(user_query," ");
 
-//             if (authInterface(buffer))
-//                 res = 1;
-//         }
+    if(strcmp(commands,"CREATE")==0 && userAktif == 1)
+    {
+        commands = strtok(NULL," ");
+        if(strcmp(commands,"USER")==0)
+        {
+            commands = strtok(NULL," ");
+            char uname[BUFSIZ];
+            strcpy(uname,commands);
+            commands = strtok(NULL," ");
+            if(strcmp(commands,"IDENTIFIED")==0)
+            {
+                commands = strtok(NULL," ");
+                if(strcmp(commands,"BY")==0)
+                {
+                    commands = strtok(NULL," ");   
+                    char pass[BUFSIZ];
+                    strcpy(pass,commands);
+                    simpanUser(uname,pass);
+                    return 1;
+                }
+            }
+        }
+    }
+}
 
-//         if (res)
-//             send(socketfd, OK, strlen(OK), 0);
-//         else 
-//             send(socketfd, FAIL, strlen(FAIL), 0);
-//     } 
-// }
+void forQuery(int socketfd) 
+{
+    char buffer[BUFSIZ];
+    while (1)
+    {
+        clear_buffer(buffer);
+        read(socketfd, buffer, BUFSIZ);
+        printf("ini buffer client --> %s\n",buffer);
+        int var = 0;
+
+        if (buffer[strlen(buffer)-1] == ';')
+        {
+            buffer[strlen(buffer)-1] = '\0';
+
+            if (cekcreate(buffer))
+                var = 1;
+        }
+
+        if (var)
+        {
+            printf("Ini if var\n");
+            send(socketfd, "CREATE", strlen("CREATE"), 0);
+        }
+        else 
+        {
+            printf("ini else var\n");
+            send(socketfd, "FAILED", strlen("FAILED"), 0);
+        }
+    } 
+}
 
 void client(int socketfd)
 {
@@ -63,25 +112,31 @@ void client(int socketfd)
     int flag = 0;
 
     printf("Ini command --> %s\n",command);
-    strcpy(userpass,command);
-    while(fgets(temp, BUFSIZ, fdir) != NULL) 
+    if(strcmp(command,"root")==0)
     {
-        // printf("%s",temp);
-        if((strstr(temp, command)) != NULL) 
-        {
-            printf("Login Berhasil\n");
-            flag = 1;
-            char kata[20] = "Berhasil";
-            send(socketfd,kata, strlen(kata),0);
-            break;
-        }   
+        userAktif = 1;
+        char kata[20] = "Berhasil";
+        send(socketfd,kata, strlen(kata),0);
+        forQuery(socketfd); 
     }
-    // while (flag == 1)
-    // {
-        
-    // }
-       
-               
+    else
+    {
+        strcpy(userpass,command);
+        while(fgets(temp, BUFSIZ, fdir) != NULL) 
+        {
+            // printf("%s",temp);
+            if((strstr(temp, command)) != NULL) 
+            {
+                printf("Login Berhasil\n");
+                flag = 1;
+                char kata[20] = "Berhasil";
+                send(socketfd,kata, strlen(kata),0);
+                break;
+            }   
+        }
+        forQuery(socketfd); 
+    }
+    
 }
 
 int main(int argc, char const *argv[]) {
@@ -124,4 +179,3 @@ int main(int argc, char const *argv[]) {
     client(new_socket);
     return 0;
 }
-
